@@ -1,0 +1,35 @@
+{
+  "name": "权哥导航",
+  "short_name": "权哥导航",
+  "description": "一个简洁美观的网址导航和书签管理器，支持多主题切换、云端同步、收藏夹管理",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#0a1628",
+  "theme_color": "#00d4aa",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities", "navigation"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "首页",
+      "url": "./index.html"
+    }
+  ]
+}
