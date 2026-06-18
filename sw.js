@@ -1,9 +1,10 @@
 // Service Worker - 基本缓存 + 离线支持
-const CACHE_NAME = 'nav-cache-v8';
+const CACHE_NAME = 'nav-cache-v9';
 const ASSETS_TO_CACHE = [
     './index.html',
     './styles.css',
     './app.js',
+    './config-loader.js',
     './manifest.json',
     './favicon.svg'
 ];

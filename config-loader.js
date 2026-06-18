@@ -15,15 +15,26 @@
     var defaultConfig = {
         DEBUG: false,
         SUPABASE_URL: '',
-        SUPABASE_ANON_KEY: ''
+        SUPABASE_ANON_KEY: '',
+        ADMIN_EMAIL: ''
     };
 
     // 尝试从多个来源加载配置
     function loadConfig() {
         var finalConfig = Object.assign({}, defaultConfig);
 
-        // 来源1: 优先从 Cloudflare Pages Functions 注入的配置读取
-        // （通过 _worker.js 或 functions/ 目录中的脚本注入 window.__CF_CONFIG__）
+        // --- 公共辅助函数 ---
+        // 检查配置值是否有效（非空、非占位符）
+        function isValidConfigValue(val) {
+            if (!val) return false;
+            if (typeof val !== 'string') return !!val;
+            var trimmed = val.trim();
+            if (!trimmed) return false;
+            if (/your-project|your-anon|YOUR_|placeholder|示例|replace|your-admin/i.test(trimmed)) return false;
+            return true;
+        }
+
+        // --- 来源1: 优先从 Cloudflare Pages Functions 注入的配置读取 ---
         if (typeof window.__CF_CONFIG__ !== 'undefined' && window.__CF_CONFIG__) {
             if (window.__CF_CONFIG__.SUPABASE_URL) {
                 finalConfig.SUPABASE_URL = window.__CF_CONFIG__.SUPABASE_URL;
@@ -31,33 +42,39 @@
             if (window.__CF_CONFIG__.SUPABASE_ANON_KEY) {
                 finalConfig.SUPABASE_ANON_KEY = window.__CF_CONFIG__.SUPABASE_ANON_KEY;
             }
+            if (window.__CF_CONFIG__.ADMIN_EMAIL) {
+                finalConfig.ADMIN_EMAIL = window.__CF_CONFIG__.ADMIN_EMAIL;
+            }
             if (typeof window.__CF_CONFIG__.DEBUG !== 'undefined') {
                 finalConfig.DEBUG = window.__CF_CONFIG__.DEBUG === 'true' || window.__CF_CONFIG__.DEBUG === true;
             }
         }
 
-        // 来源2: 从 config.js 中读取（本地部署时使用，config.js 不提交到 Git）
-        // 注意：config.js 中的配置会覆盖 Cloudflare 注入的配置（允许本地覆盖）
+        // --- 来源2: 从 config.js 中读取（本地部署时使用，config.js 不提交到 Git） ---
+        // 只有当 config.js 中的值为有效值时才会覆盖，避免空的 config.js 意外覆盖 __CF_CONFIG__
         if (typeof window.QUANGE_CONFIG !== 'undefined' && window.QUANGE_CONFIG) {
-            if (window.QUANGE_CONFIG.SUPABASE_URL) {
+            if (isValidConfigValue(window.QUANGE_CONFIG.SUPABASE_URL)) {
                 finalConfig.SUPABASE_URL = window.QUANGE_CONFIG.SUPABASE_URL;
             }
-            if (window.QUANGE_CONFIG.SUPABASE_ANON_KEY) {
+            if (isValidConfigValue(window.QUANGE_CONFIG.SUPABASE_ANON_KEY)) {
                 finalConfig.SUPABASE_ANON_KEY = window.QUANGE_CONFIG.SUPABASE_ANON_KEY;
             }
+            if (isValidConfigValue(window.QUANGE_CONFIG.ADMIN_EMAIL)) {
+                finalConfig.ADMIN_EMAIL = window.QUANGE_CONFIG.ADMIN_EMAIL;
+            }
             if (typeof window.QUANGE_CONFIG.DEBUG !== 'undefined') {
-                finalConfig.DEBUG = window.QUANGE_CONFIG.DEBUG;
+                finalConfig.DEBUG = window.QUANGE_CONFIG.DEBUG === 'true' ||
+                                    window.QUANGE_CONFIG.DEBUG === true;
             }
         }
 
-        // 验证配置是否有效
+        // --- 验证配置是否有效 ---
         finalConfig.isConfigured = function () {
-            return !!this.SUPABASE_URL &&
-                this.SUPABASE_URL !== 'https://your-project-ref.supabase.co' &&
-                !!this.SUPABASE_ANON_KEY;
+            return isValidConfigValue(this.SUPABASE_URL) &&
+                   isValidConfigValue(this.SUPABASE_ANON_KEY);
         };
 
-        // 添加 preconnect 动态注入
+        // --- 添加 preconnect 动态注入 ---
         if (finalConfig.SUPABASE_URL) {
             var link = document.createElement('link');
             link.rel = 'preconnect';
@@ -71,13 +88,11 @@
             document.head.appendChild(dnsPrefetch);
         }
 
-        // 将最终配置暴露到全局
+        // --- 将最终配置暴露到全局 ---
         window.QUANGE_CONFIG = finalConfig;
-
-        // 配置状态标记
         window.__QUANGE_CONFIG_LOADED = true;
 
-        // 调试输出
+        // --- 调试输出 ---
         if (finalConfig.DEBUG) {
             console.log('[config-loader] 配置已加载:', {
                 SUPABASE_URL: finalConfig.SUPABASE_URL ? '已配置' : '未配置',
@@ -89,4 +104,28 @@
 
     // 立即执行配置加载
     loadConfig();
+
+    // --- 兜底机制: 如果第一次执行时 __CF_CONFIG__ 尚未被设置 ---
+    // (例如注入脚本在本脚本之后才执行，或 Cloudflare Worker 出错延迟注入)
+    // 在 DOMContentLoaded 后重新检查一次，确保配置最终能被应用
+    function recheckConfig() {
+        var hasCFConfig = typeof window.__CF_CONFIG__ !== 'undefined' &&
+                          window.__CF_CONFIG__ &&
+                          (window.__CF_CONFIG__.SUPABASE_URL || window.__CF_CONFIG__.SUPABASE_ANON_KEY);
+
+        var currentConfig = window.QUANGE_CONFIG || {};
+        var hasValues = currentConfig.SUPABASE_URL && currentConfig.SUPABASE_ANON_KEY;
+
+        if (hasCFConfig && !hasValues) {
+            console.log('[config-loader] 发现延迟加载的 Cloudflare 配置，重新应用...');
+            loadConfig();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', recheckConfig);
+    } else {
+        // DOM 已经就绪，立即检查
+        recheckConfig();
+    }
 })();

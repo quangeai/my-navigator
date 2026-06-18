@@ -3,7 +3,8 @@
 const CONFIG = window.QUANGE_CONFIG || {
     DEBUG: false,
     SUPABASE_URL: '',
-    SUPABASE_ANON_KEY: ''
+    SUPABASE_ANON_KEY: '',
+    ADMIN_EMAIL: ''
 };
 
 const DEBUG = CONFIG.DEBUG;
@@ -338,17 +339,51 @@ function saveSettings() {
 
 // ==================== Supabase 初始化 ====================
 function initSupabaseClient() {
-    if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY &&
-        SUPABASE_URL !== 'https://your-project.supabase.co') {
+    // 使用统一的配置检查逻辑（由 config-loader.js 提供的 isConfigured）
+    // 支持多种部署模式：Cloudflare 环境变量注入 / 本地 config.js / 空配置
+    const configured = typeof CONFIG.isConfigured === 'function'
+        ? CONFIG.isConfigured()
+        : (!!SUPABASE_URL && !!SUPABASE_ANON_KEY &&
+            SUPABASE_URL !== 'https://your-project.supabase.co' &&
+            SUPABASE_URL !== 'https://your-project-ref.supabase.co');
+
+    if (typeof supabase !== 'undefined' && configured) {
         try {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true
+                }
+            });
             isCloudReady = true;
+            log('[initSupabaseClient] Supabase 初始化成功，URL:', SUPABASE_URL);
             return true;
         } catch (e) {
-            warn('Supabase 初始化失败，将使用离线模式', e);
+            warn('[initSupabaseClient] Supabase 初始化失败，将使用离线模式', e);
         }
+    } else {
+        warn('[initSupabaseClient] Supabase 未配置或库未加载，supabase 库:', typeof supabase,
+             'URL 已设置:', !!SUPABASE_URL, 'ANON_KEY 已设置:', !!SUPABASE_ANON_KEY);
     }
     return false;
+}
+
+// 获取配置诊断信息（用于帮助用户排查问题）
+function getConfigDiagnostics() {
+    const fromCF = typeof window.__CF_CONFIG__ !== 'undefined';
+    const fromLocal = typeof window.QUANGE_CONFIG !== 'undefined' && CONFIG.SUPABASE_URL;
+    const configured = typeof CONFIG.isConfigured === 'function' ? CONFIG.isConfigured() : false;
+    const urlMasked = SUPABASE_URL ? (SUPABASE_URL.substring(0, 20) + '...') : '(空)';
+    const keyMasked = SUPABASE_ANON_KEY ? (SUPABASE_ANON_KEY.substring(0, 10) + '...') : '(空)';
+    return {
+        配置来源: fromCF ? 'Cloudflare 环境变量注入' : (fromLocal ? '本地 config.js' : '未找到任何配置'),
+        URL已设置: !!SUPABASE_URL,
+        ANON_KEY已设置: !!SUPABASE_ANON_KEY,
+        URL值预览: urlMasked,
+        ANON_KEY值预览: keyMasked,
+        配置是否有效: configured,
+        Supabase库是否加载: typeof supabase !== 'undefined'
+    };
 }
 
 async function safeSupabaseCall(promise) {
@@ -4052,7 +4087,13 @@ document.querySelectorAll('.modal-close').forEach(btn => {
 // ==================== 管理员检查 ====================
 function isAdmin() {
     if (!currentUser || !currentUser.email) return false;
-    return currentUser.email === 'leader_dwq@163.com';
+    // 从环境变量配置中读取管理员邮箱（Cloudflare Pages 注入的 ADMIN_EMAIL）
+    const adminEmail = CONFIG.ADMIN_EMAIL || '';
+    if (!adminEmail) {
+        // 如果未配置 ADMIN_EMAIL，降级到硬编码的默认值（保持向后兼容）
+        return currentUser.email === 'leader_dwq@163.com';
+    }
+    return currentUser.email.toLowerCase() === adminEmail.toLowerCase();
 }
 
 // 渲染图标：支持emoji和图片链接
@@ -5036,7 +5077,25 @@ function updateUserUI() {
         userArea.innerHTML = '<button class="login-btn" id="loginBtn">登录</button>';
         document.getElementById('loginBtn').addEventListener('click', () => {
             if (!isCloudReady) {
-                showToast('云端同步未配置，请在代码中填写您的 Supabase 信息。目前将以离线模式使用。', 'warning', 5000);
+                const diag = getConfigDiagnostics();
+                const diagText = Object.entries(diag).map(([k, v]) => `${k}: ${v}`).join('\n');
+                error('[loginBtn] Supabase 未配置，诊断信息:\n' + diagText);
+                let hint = '云端同步未配置。';
+                if (!diag.Supabase库是否加载) {
+                    hint += ' Supabase 库未加载（可能是网络问题或 CDN 被屏蔽）。';
+                } else if (!diag.URL已设置 || !diag.ANON_KEY已设置) {
+                    if (diag.配置来源.includes('Cloudflare')) {
+                        hint += ' Cloudflare Pages 环境变量未正确设置。请在 Cloudflare 控制台检查 SUPABASE_URL 和 SUPABASE_ANON_KEY。';
+                    } else if (diag.配置来源.includes('config.js')) {
+                        hint += ' config.js 中的配置为空或无效。请编辑 config.js 填写实际的 Supabase 信息。';
+                    } else {
+                        hint += ' 未找到任何配置。请在 Cloudflare Pages 设置环境变量，或在本地编辑 config.js。';
+                    }
+                } else if (!diag.配置是否有效) {
+                    hint += ' 检测到示例/占位符 URL，未替换为真实配置。';
+                }
+                hint += ' 目前将以离线模式使用。';
+                showToast(hint, 'warning', 8000);
                 return;
             }
             showAuth(false);

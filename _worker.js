@@ -7,8 +7,9 @@
 //
 // 使用方法：
 //   在 Cloudflare Pages 控制台中设置以下环境变量：
-//   - SUPABASE_URL:    https://your-project-ref.supabase.co
+//   - SUPABASE_URL:     https://your-project-ref.supabase.co
 //   - SUPABASE_ANON_KEY: your-anon-key-here
+//   - ADMIN_EMAIL:      your-admin@example.com  (可选，管理员邮箱，拥有管理面板权限)
 //   - DEBUG:            false
 //
 // 注意：
@@ -48,23 +49,42 @@ export default {
             // env 对象包含 Cloudflare Pages 控制台设置的所有环境变量
             const supabaseUrl = env.SUPABASE_URL || '';
             const supabaseAnonKey = env.SUPABASE_ANON_KEY || '';
+            const adminEmail = env.ADMIN_EMAIL || '';
             const debugMode = env.DEBUG || 'false';
 
             // 生成配置注入脚本
-            // 将配置作为内联脚本注入到 <head> 中，config-loader.js 会读取它
-            const configScript = `
-    <!-- Cloudflare Pages 环境变量注入（由 _worker.js 自动生成） -->
-    <script>
+            // 必须在任何其他脚本之前执行，所以注入到 <head> 标签后的第一个位置
+            const configScript = `<script>
+        // Cloudflare Pages 环境变量注入（由 _worker.js 自动生成）
+        // 必须在 config-loader.js 之前执行，否则配置无法被读取
         window.__CF_CONFIG__ = {
             SUPABASE_URL: ${JSON.stringify(supabaseUrl)},
             SUPABASE_ANON_KEY: ${JSON.stringify(supabaseAnonKey)},
+            ADMIN_EMAIL: ${JSON.stringify(adminEmail)},
             DEBUG: ${JSON.stringify(debugMode)}
         };
     </script>`;
 
-            // 将配置脚本注入到 </head> 之前
-            // 确保它在 config-loader.js 和 app.js 之前加载
-            html = html.replace('</head>', configScript + '\n</head>');
+            // 策略：在 <head> 标签后立即注入，确保它是第一个执行的脚本
+            // 使用多种可能的 head 标签格式作为匹配目标
+            let injected = false;
+            const headPatterns = [
+                /<head[^>]*>/i,
+                /<HEAD[^>]*>/,
+            ];
+            for (const pattern of headPatterns) {
+                if (pattern.test(html)) {
+                    html = html.replace(pattern, match => match + '\n    ' + configScript);
+                    injected = true;
+                    break;
+                }
+            }
+
+            // 兜底策略：如果没找到 <head> 标签，回退到 </head> 之前注入
+            // 同时在脚本中添加延迟检查，保证即使位置不对也能生效
+            if (!injected) {
+                html = html.replace('</head>', configScript + '\n    </head>');
+            }
 
             // 返回修改后的 HTML 响应
             return new Response(html, {

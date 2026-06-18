@@ -77,6 +77,11 @@ window.QUANGE_CONFIG = {
     SUPABASE_URL: 'https://your-project-ref.supabase.co',
     SUPABASE_ANON_KEY: 'your-anon-public-key-here',
 
+    // ───────────── 管理员邮箱（可选） ─────────────
+    // 拥有此邮箱的用户登录后可以看到管理功能（推广卡片管理等）
+    // 如果使用 Cloudflare Pages 部署，可在控制台设置环境变量 ADMIN_EMAIL
+    ADMIN_EMAIL: 'your-admin@example.com',
+
     // ───────────── 功能开关（可选，未来扩展用） ─────────────
     FEATURES: {
         cloudSync: true,      // 是否启用云端同步（设为 false 则完全本地运行）
