@@ -186,6 +186,13 @@
                                 <line x1="9" y1="14" x2="15" y2="14"/>
                             </svg>
                         </button>
+                        <button class="icon-btn" id="sortFoldersBtn" title="排序文件夹">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="4" y1="6" x2="20" y2="6"/>
+                                <line x1="4" y1="12" x2="14" y2="12"/>
+                                <line x1="4" y1="18" x2="8" y2="18"/>
+                            </svg>
+                        </button>
                         <button class="icon-btn" id="addBookmarkBtn" title="添加书签">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -1045,6 +1052,26 @@
         </div>
     </div>
 </div>
+<div class="modal-overlay" id="sortFoldersOverlay">
+    <div class="modal" style="width:480px;">
+        <button class="modal-close" title="关闭">×</button>
+        <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px;">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="4" y1="12" x2="14" y2="12"/>
+                <line x1="4" y1="18" x2="8" y2="18"/>
+            </svg>
+            排序文件夹
+        </h3>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px;">拖拽文件夹调整顺序，排在上面的在侧边栏中显示更靠前</p>
+        <div id="sortFolderList" class="sort-folder-list"></div>
+        <div class="form-actions" style="margin-top:16px;">
+            <button class="btn btn-ghost" id="cancelSortBtn">取消</button>
+            <button class="btn btn-primary" id="confirmSortBtn">保存排序</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="editBookmarkOverlay">
     <div class="modal">
         <button class="modal-close" title="关闭">×</button>

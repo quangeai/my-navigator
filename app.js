@@ -4367,6 +4367,126 @@ document.getElementById('saveEditCardBtn')?.addEventListener('click', async () =
     }
 });
 
+// ==================== 文件夹排序 ====================
+document.getElementById('sortFoldersBtn')?.addEventListener('click', showSortFoldersModal);
+document.getElementById('cancelSortBtn')?.addEventListener('click', closeSortFoldersModal);
+document.getElementById('confirmSortBtn')?.addEventListener('click', saveSortOrder);
+document.getElementById('sortFoldersOverlay')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeSortFoldersModal();
+});
+
+let sortFolderList = []; // 排序弹窗中的文件夹副本
+
+function showSortFoldersModal() {
+    // 收集所有根级文件夹（不包含子文件夹）
+    sortFolderList = [];
+    data.forEach(node => {
+        if (node.isFolder || node.children !== undefined) {
+            sortFolderList.push({ id: node.id, name: node.name, icon: node.icon || '📁' });
+        }
+    });
+
+    if (sortFolderList.length < 2) {
+        showToast('至少需要两个文件夹才能排序', 'warning');
+        return;
+    }
+
+    renderSortList();
+    document.getElementById('sortFoldersOverlay').classList.add('show');
+}
+
+function closeSortFoldersModal() {
+    document.getElementById('sortFoldersOverlay').classList.remove('show');
+}
+
+function renderSortList() {
+    const container = document.getElementById('sortFolderList');
+    container.innerHTML = '';
+
+    sortFolderList.forEach((folder, index) => {
+        const item = document.createElement('div');
+        item.className = 'sort-folder-item';
+        item.draggable = true;
+        item.dataset.index = index;
+        item.dataset.id = folder.id;
+
+        item.innerHTML = `
+            <span class="sort-drag-handle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="7" x2="20" y2="7"/>
+                    <line x1="4" y1="12" x2="20" y2="12"/>
+                    <line x1="4" y1="17" x2="20" y2="17"/>
+                </svg>
+            </span>
+            <span class="sort-folder-icon">${esc(folder.icon)}</span>
+            <span class="sort-folder-name">${esc(folder.name)}</span>
+            <span class="sort-folder-index">${index + 1}</span>
+        `;
+
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', index.toString());
+            e.dataTransfer.effectAllowed = 'move';
+            item.classList.add('dragging');
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            container.querySelectorAll('.sort-folder-item').forEach(el => el.classList.remove('drag-over'));
+        });
+
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            item.classList.add('drag-over');
+        });
+
+        item.addEventListener('dragleave', () => {
+            item.classList.remove('drag-over');
+        });
+
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            const toIndex = index;
+            if (fromIndex === toIndex) return;
+
+            // 移动数组元素
+            const [moved] = sortFolderList.splice(fromIndex, 1);
+            sortFolderList.splice(toIndex, 0, moved);
+
+            renderSortList();
+        });
+
+        container.appendChild(item);
+    });
+}
+
+function saveSortOrder() {
+    if (sortFolderList.length === 0) return;
+
+    // 构建新的排序映射：id → 新位置
+    const orderMap = {};
+    sortFolderList.forEach((f, i) => {
+        orderMap[f.id] = i;
+    });
+
+    // 按新顺序重排 data 数组中的根级文件夹
+    data.sort((a, b) => {
+        const aIsFolder = a.isFolder || a.children !== undefined;
+        const bIsFolder = b.isFolder || b.children !== undefined;
+        const aOrder = aIsFolder ? (orderMap[a.id] ?? 999) : 999;
+        const bOrder = bIsFolder ? (orderMap[b.id] ?? 999) : 999;
+        return aOrder - bOrder;
+    });
+
+    allBookmarks = flattenTree(data);
+    saveLocalData();
+    renderAll();
+    closeSortFoldersModal();
+    showToast('文件夹排序已保存', 'success');
+}
+
 // ==================== 添加文件夹 ====================
 document.getElementById('addFolderBtn')?.addEventListener('click', showAddFolderModal);
 document.getElementById('addFolderBtn2')?.addEventListener('click', showAddFolderModal);

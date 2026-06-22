@@ -1,7 +1,9 @@
 // Service Worker - 基本缓存 + 离线支持
-const CACHE_NAME = 'nav-cache-v9';
+// v10: 移除 index.html 的安装时缓存（HTML 由 _worker.js 动态注入配置，缓存会导致配置丢失）
+const CACHE_NAME = 'nav-cache-v10';
 const ASSETS_TO_CACHE = [
-    './index.html',
+    // 注意：index.html 不在此列表，因为它的内容由 Cloudflare _worker.js 动态注入配置
+    // 缓存 HTML 会导致环境变量注入的配置丢失，从而出现"云端同步未配置"错误
     './styles.css',
     './app.js',
     './config-loader.js',
@@ -9,7 +11,7 @@ const ASSETS_TO_CACHE = [
     './favicon.svg'
 ];
 
-// 安装时缓存核心资源
+// 安装时缓存核心资源（不含 HTML）
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -39,26 +41,14 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 导航请求（HTML 页面）：网络优先，失败回退缓存 → 支持离线访问
+    // 导航请求（HTML 页面）：纯网络优先，不缓存 HTML
+    // 原因：HTML 由 Cloudflare _worker.js 动态注入环境变量配置，缓存会导致配置丢失
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request)
-                .then((response) => {
-                    // 网络成功：更新缓存
-                    if (response && response.status === 200) {
-                        const responseClone = response.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseClone);
-                        });
-                    }
-                    return response;
-                })
-                .catch(() => {
-                    // 网络失败：从缓存返回已保存的页面
-                    return caches.match('./index.html').then((cached) => {
-                        return cached || caches.match(event.request);
-                    });
-                })
+            fetch(event.request).catch(() => {
+                // 网络失败（离线）：尝试从缓存返回（仅作为最后手段）
+                return caches.match(event.request);
+            })
         );
         return;
     }

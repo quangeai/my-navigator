@@ -2128,6 +2128,9 @@
             color: white; 
             box-shadow: 0 12px 32px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.25);
         }
+        /* 排序按钮：仅在编辑模式下显示 */
+        #sortFoldersBtn { display: none; }
+        body.editing #sortFoldersBtn { display: flex; }
         .login-btn {
             padding:10px 22px; 
             border-radius:16px; 
@@ -5919,7 +5922,69 @@
             transform: rotate(90deg) scale(1.12);
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
-        
+
+        /* ========== 文件夹排序弹窗 ========== */
+        .sort-folder-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+        .sort-folder-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            cursor: grab;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .sort-folder-item:hover {
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .sort-folder-item.dragging {
+            opacity: 0.4;
+            cursor: grabbing;
+        }
+        .sort-folder-item.drag-over {
+            border-color: var(--accent);
+            background: rgba(var(--accent-rgb, 0, 212, 170), 0.08);
+            box-shadow: 0 0 0 2px var(--accent) inset;
+            transform: scale(1.02);
+        }
+        .sort-drag-handle {
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            cursor: grab;
+        }
+        .sort-folder-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            width: 24px;
+            text-align: center;
+        }
+        .sort-folder-name {
+            flex: 1;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+        .sort-folder-index {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            background: var(--bg-page);
+            padding: 2px 8px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
         /* 设置面板左右布局 */
         .settings-modal {
             width: 960px;

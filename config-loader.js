@@ -128,4 +128,39 @@
         // DOM 已经就绪，立即检查
         recheckConfig();
     }
+
+    // --- 兜底机制 2: 处理浏览器 bfcache（往返缓存）恢复 ---
+    // 当用户通过浏览器前进/后退按钮返回页面时，页面可能从 bfcache 恢复
+    // 此时 DOMContentLoaded 不会重新触发，但 __CF_CONFIG__ 可能已被清除
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            // 页面从 bfcache 恢复，重新检查配置
+            var hasCFConfig = typeof window.__CF_CONFIG__ !== 'undefined' &&
+                              window.__CF_CONFIG__ &&
+                              (window.__CF_CONFIG__.SUPABASE_URL || window.__CF_CONFIG__.SUPABASE_ANON_KEY);
+            var currentConfig = window.QUANGE_CONFIG || {};
+            var hasValues = currentConfig.SUPABASE_URL && currentConfig.SUPABASE_ANON_KEY;
+            if (!hasValues) {
+                if (hasCFConfig) {
+                    loadConfig();
+                }
+            }
+        }
+    });
+
+    // --- 兜底机制 3: 页面可见性变化时重新检查 ---
+    // 用户切换标签页回来时，确保配置仍然有效
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) {
+            var currentConfig = window.QUANGE_CONFIG || {};
+            if (!currentConfig.isConfigured || !currentConfig.isConfigured()) {
+                var hasCFConfig = typeof window.__CF_CONFIG__ !== 'undefined' &&
+                                  window.__CF_CONFIG__ &&
+                                  (window.__CF_CONFIG__.SUPABASE_URL || window.__CF_CONFIG__.SUPABASE_ANON_KEY);
+                if (hasCFConfig) {
+                    loadConfig();
+                }
+            }
+        }
+    });
 })();
